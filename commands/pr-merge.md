@@ -10,7 +10,8 @@ Merge the pull request in $ARGUMENTS safely.
 Parse $ARGUMENTS:
 - Token 1: PR number (required)
 - Token 2: repo as `owner/repo` (optional — omit `-R` if not provided)
-- Token 3: merge strategy — `squash` (default), `merge`, or `rebase`
+- Token 3: merge strategy — `merge` (default), `squash`, or `rebase`
+- Flag `--no-confirm`: if present, skip the confirmation prompt in Step 3 and proceed directly to merge
 
 ## Step 1 — Verify PR state
 
@@ -40,11 +41,11 @@ If all checks pass (or there are no required checks), proceed.
 Show a summary:
 ```
 PR #<n>: <title>
-Strategy: <squash|merge|rebase>
+Strategy: <merge|squash|rebase>
 Repo: <repo>
 ```
 
-Ask: "Confirm merge? (yes / no)"  Wait for explicit confirmation before proceeding.
+If `--no-confirm` was passed, skip this step and proceed. Otherwise ask: "Confirm merge? (yes / no)" and wait for explicit confirmation before proceeding.
 
 ## Step 4 — Merge
 

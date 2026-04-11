@@ -4,6 +4,8 @@ Bump the project version using `uv version --bump`, create an annotated git tag 
 
 `$ARGUMENTS` is the bump type: `patch` (default), `minor`, or `major`.
 
+Optional flag `--no-confirm`: if present, skip steps 3, 4, and 5 — use the default release notes, create a GitHub release, and proceed without prompting.
+
 ## Steps
 
 1. Determine bump type from `$ARGUMENTS`. If empty or not provided, use `patch`.

@@ -27,7 +27,7 @@ Show the matching PRs in a table. If none are found, stop and tell the user.
 
 ## Step 2 — Merge each bump PR
 
-For each matching PR number, invoke `/pr-merge <PR#> <repo>`.
+For each matching PR number, invoke `/pr-merge <PR#> <repo> --no-confirm`.
 
 Stop if any merge fails before proceeding to the next step.
 
@@ -35,10 +35,10 @@ Stop if any merge fails before proceeding to the next step.
 
 ## Step 3 — Bump version
 
-Invoke `/bump-version <bump-type>`.
+Invoke `/bump-version <bump-type> --no-confirm`.
 
 ---
 
 ## Step 4 — Create release
 
-`/bump-version` will prompt whether to create a GitHub release — answer yes to complete the flow.
+`/bump-version --no-confirm` will automatically create a GitHub release.
