@@ -20,7 +20,8 @@
       "Bash(gh release:*)",
       "Bash(gh repo:*)",
       "Skill(release-create)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
