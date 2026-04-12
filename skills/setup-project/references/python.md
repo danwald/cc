@@ -32,11 +32,32 @@ Use `pyproject.toml` (not `requirements.txt`) for all project metadata and tool 
 
 ## pyproject.toml Configuration
 
+For a FastAPI project the full `[project]` block (swap `asyncpg` for your DB driver):
+
 ```toml
 [project]
 name = "your-project"
 version = "0.1.0"
 requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
 
 [tool.ruff]
 line-length = 96
@@ -58,6 +79,173 @@ strict = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "--cov --cov-report=term-missing --cov-fail-under=80"
+```
+
+## FastAPI Application Patterns
+
+### `.env.example`
+
+```
+APP_ENV=development
+APP_DEBUG=true
+CORS_ORIGINS=http://localhost:3000
+DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app_dev
+```
+
+### `config.py` — pydantic-settings BaseSettings
+
+```python
+from __future__ import annotations
+
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    APP_ENV: str = "development"
+    APP_DEBUG: bool = False
+    CORS_ORIGINS: str = "http://localhost:3000"
+    DATABASE_URL: str
+
+    @computed_field
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",")]
+
+
+settings = Settings()
+```
+
+### `main.py` — FastAPI lifespan + CORS
+
+```python
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.database import engine
+from app.domain.models.base import Base
+from app.infrastructure.api import api_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # AIDEV-NOTE: run Alembic in prod; create_all is dev-only convenience
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+
+
+app = FastAPI(title="My API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router)
+```
+
+### Domain layer boilerplate
+
+**`domain/models/base.py`** — SQLAlchemy declarative base (only framework import allowed in domain):
+
+```python
+from __future__ import annotations
+
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
+```
+
+**`domain/exceptions.py`** — typed, hierarchical exceptions:
+
+```python
+from __future__ import annotations
+
+
+class DomainException(Exception):
+    """Base for all domain errors."""
+
+
+class EntityNotFoundError(DomainException):
+    """Raised when a requested entity does not exist."""
+
+
+class ValidationError(DomainException):
+    """Raised when domain validation fails."""
+```
+
+**`domain/repositories/__init__.py`** — port interface (ABC):
+
+```python
+from __future__ import annotations
+
+# AIDEV-NOTE: port interface — infrastructure implements this, application depends on it
+from abc import ABC, abstractmethod
+from typing import TypeVar
+
+T = TypeVar("T")
+
+
+class BaseRepository(ABC):
+    """Port interface — implemented by infrastructure adapters."""
+
+    @abstractmethod
+    async def get_by_id(self, entity_id: int) -> T | None: ...
+
+    @abstractmethod
+    async def save(self, entity: T) -> T: ...
+```
+
+**`application/services/__init__.py`** — use case docstring pattern:
+
+```python
+"""Application services (use cases).
+
+Each use case receives repository ports via constructor injection — never
+concrete infrastructure classes.
+
+Example:
+
+    class CreateUserService:
+        def __init__(self, user_repo: UserRepository) -> None:
+            self._user_repo = user_repo  # AIDEV-NOTE: injected port interface
+
+        async def execute(self, data: CreateUserInput) -> User:
+            user = User(name=data.name, email=data.email)
+            return await self._user_repo.save(user)
+"""
+```
+
+**`infrastructure/api/dependencies.py`** — DI wiring (only place that knows about concrete adapters):
+
+```python
+from __future__ import annotations
+
+# AIDEV-NOTE: DI wiring — only place that binds port interfaces to concrete adapters
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.domain.repositories import UserRepository
+from app.infrastructure.persistence.repositories.user_repo import SqlAlchemyUserRepository
+
+
+async def get_user_repository(db: AsyncSession = Depends(get_db)) -> UserRepository:
+    # AIDEV-NOTE: infrastructure adapter — satisfies domain port interface
+    return SqlAlchemyUserRepository(db)
 ```
 
 ## Coding Standards

@@ -228,6 +228,25 @@ afterAll(async () => {
 })
 ```
 
+### FastAPI dependency override in tests
+
+Override FastAPI's `get_db` dependency so tests use the test session, not the real one:
+
+```python
+# conftest.py
+from app.database import get_db
+from app.main import app
+
+@pytest.fixture
+async def db_session(engine):
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        # AIDEV-NOTE: override FastAPI DI so all route handlers use the test session
+        app.dependency_overrides[get_db] = lambda: session
+        yield session
+        app.dependency_overrides.clear()
+        await session.rollback()
+```
+
 ---
 
 ## Common Rules

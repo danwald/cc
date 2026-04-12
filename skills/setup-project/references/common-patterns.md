@@ -50,15 +50,101 @@ volumes:
 | **Never `docker run` manually** | All orchestration goes through `docker-compose` |
 | **Separate dev/prod Dockerfiles** | `Dockerfile` = prod multi-stage; `Dockerfile.dev` = dev with hot-reload if needed |
 
-### Makefile shortcuts (always include)
+### Dockerfiles
+
+**`backend/Dockerfile`** (Python / FastAPI):
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install uv && uv pip install --system -e ".[dev]"
+COPY . .
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+For hot-reload in dev, override the `command` in docker-compose:
+`command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
+
+**`frontend/Dockerfile`** (Node.js / Next.js):
+
+```dockerfile
+FROM node:20-slim
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+CMD ["npm", "run", "dev"]
+```
+
+### Makefile (always include at project root)
 
 ```makefile
-up:    docker compose up -d
-down:  docker compose down
-logs:  docker compose logs -f
-build: docker compose build
-shell-backend:  docker compose exec backend bash
-shell-frontend: docker compose exec frontend sh
+.PHONY: help build up down restart logs test lint clean
+
+help: ## Show this help message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	  awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+build: ## Build all Docker containers
+	docker compose build
+build-backend: ## Build backend only
+	docker compose build backend
+build-frontend: ## Build frontend only
+	docker compose build frontend
+up: ## Start all services (detached)
+	docker compose up -d
+up-attached: ## Start all services with logs
+	docker compose up
+down: ## Stop all services
+	docker compose down
+restart: ## Restart all services
+	docker compose down && docker compose up -d
+logs: ## Tail logs from all services
+	docker compose logs -f
+logs-backend: ## Tail backend logs
+	docker compose logs -f backend
+logs-frontend: ## Tail frontend logs
+	docker compose logs -f frontend
+
+# ── Shells ────────────────────────────────────────────────────────────────────
+backend-shell: ## Shell into backend container
+	docker compose exec backend bash
+frontend-shell: ## Shell into frontend container
+	docker compose exec frontend sh
+
+# ── Backend (local) ──────────────────────────────────────────────────────────
+backend-install: ## Install backend deps locally
+	cd backend && uv pip install -e ".[dev]"
+backend-run: ## Run backend locally
+	cd backend && uvicorn app.main:app --reload
+backend-lint: ## Lint + format backend
+	cd backend && uv run ruff check --fix . && uv run ruff format .
+backend-typecheck: ## Type-check backend
+	cd backend && uv run mypy app/
+test-backend: ## Run backend tests
+	cd backend && uv run pytest -v
+
+# ── Frontend (local) ─────────────────────────────────────────────────────────
+frontend-install: ## Install frontend deps locally
+	cd frontend && npm install
+frontend-run: ## Run frontend locally
+	cd frontend && npm run dev
+frontend-lint: ## Lint frontend
+	cd frontend && npm run lint
+frontend-format: ## Format frontend
+	cd frontend && npm run format
+test-frontend: ## Run frontend unit tests
+	cd frontend && npm run test:run
+
+# ── Combined ─────────────────────────────────────────────────────────────────
+test: test-backend test-frontend ## Run all tests
+lint: backend-lint frontend-lint ## Lint all code
+
+# ── Cleanup ───────────────────────────────────────────────────────────────────
+clean: ## Remove containers, volumes, built images
+	docker compose down -v --rmi local
 ```
 
 ---
@@ -244,13 +330,37 @@ These comments let any future AI or developer immediately understand which layer
 ### Universal .gitignore
 
 ```gitignore
-.idea/
-.vscode/
-*.swp
-.DS_Store
-.env
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+*.db
+.coverage
+htmlcov/
+coverage/
+
+# Node
+node_modules/
+.next/
 .env.local
-*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+*.swp
+
+# Secrets
+.env
+
+# Testing
+.coverage
+htmlcov/
 ```
 
 ### Universal .editorconfig

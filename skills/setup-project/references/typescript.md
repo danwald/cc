@@ -14,6 +14,48 @@ Standards and tooling conventions for TypeScript and React/Next.js projects.
 | Vitest | Unit/component testing | latest |
 | Playwright | E2E testing | latest |
 
+## Scaffolding a New Next.js Project
+
+```bash
+npx create-next-app@latest frontend \
+  --typescript --tailwind --eslint --app --src-dir \
+  --import-alias "@/*" --use-npm
+```
+
+Then install additional dependencies:
+
+```bash
+cd frontend && npm install clsx tailwind-merge zod
+npm install -D vitest @vitejs/plugin-react @testing-library/react \
+  @testing-library/dom @testing-library/user-event @testing-library/jest-dom \
+  vite-tsconfig-paths jsdom prettier prettier-plugin-tailwindcss
+```
+
+## Project Structure
+
+```
+frontend/src/
+├── app/                    # Next.js App Router (routing only — keep thin)
+│   ├── layout.tsx          # Root layout (fonts, providers)
+│   ├── page.tsx            # Landing page (Server Component)
+│   ├── loading.tsx         # Root loading skeleton
+│   ├── error.tsx           # Root error boundary ("use client")
+│   ├── not-found.tsx       # 404 page
+│   └── global-error.tsx    # Catches root layout errors
+├── components/
+│   ├── ui/                 # Reusable primitives (Button, Input, Card)
+│   ├── layout/             # Shell components (Header, Footer, Sidebar)
+│   └── features/           # Domain-specific composites
+├── hooks/                  # Custom React hooks
+├── lib/
+│   ├── utils.ts            # cn() and other helpers
+│   └── api.ts              # Type-safe fetch client
+├── types/
+│   └── index.ts            # Shared TypeScript types
+└── styles/
+    └── globals.css
+```
+
 ## tsconfig.json (strict)
 
 ```json
@@ -75,10 +117,86 @@ Never use React Context for high-frequency state updates.
 - Use `prettier-plugin-tailwindcss` to auto-sort class names.
 - Avoid `@apply` — write utility classes directly or extract components.
 
+**`src/lib/utils.ts`:**
+
+```typescript
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+
 ### Performance
 - `next/image` with `priority` for LCP images; always provide `sizes` for responsive images.
 - `next/font/google` with `variable` option for self-hosted fonts with zero layout shift.
 - `dynamic()` with `ssr: false` for browser-only heavy components.
+- **React Compiler** (Next.js 16+): `useMemo`/`useCallback`/`React.memo` are automatic — don't add them manually.
+
+**`src/lib/api.ts`** — type-safe fetch client:
+
+```typescript
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+
+export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    ...options,
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return res.json() as Promise<T>
+}
+```
+
+**`src/app/layout.tsx`** — root layout with `next/font/google`:
+
+```tsx
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import "@/styles/globals.css"
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
+
+export const metadata: Metadata = { title: "My App", description: "..." }
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
+      <body className="font-sans antialiased">{children}</body>
+    </html>
+  )
+}
+```
+
+**`src/app/error.tsx`** — route error boundary (must be `"use client"`):
+
+```tsx
+"use client"
+
+import { useEffect } from "react"
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  useEffect(() => { console.error(error) }, [error])
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <h2 className="text-xl font-semibold">Something went wrong</h2>
+      <button onClick={reset} className="rounded-md bg-blue-600 px-4 py-2 text-white">
+        Try again
+      </button>
+    </div>
+  )
+}
+```
+
+`global-error.tsx` at app root must render its own `<html>` and `<body>` tags and be `"use client"`.
 
 ### Security
 - `server-only` import on modules that must never reach the client.
@@ -175,6 +293,12 @@ export default defineConfig({
     },
   },
 })
+```
+
+**`src/test/setup.ts`:**
+
+```typescript
+import "@testing-library/jest-dom/vitest"
 ```
 
 - Co-locate unit/component tests as `*.test.tsx` next to the component.
