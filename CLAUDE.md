@@ -60,6 +60,7 @@ async def render_feed(...):
 - **Clear commit messages**: Explain the _why_; link to issues/ADRs if architectural.
 - **Use `git worktree`** for parallel/long-running AI branches (e.g., `git worktree add ../wip-foo -b wip-foo`).
 - **Review AI-generated code**: Never merge code you don't understand.
+- Make atomic commits for each change to code where atomic commits are one commit per logical change, no more, no less and each commit should be a self-contained unit that could be reverted independently without breaking anything else.
 
 ---
 
