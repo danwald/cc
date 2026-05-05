@@ -1,9 +1,4 @@
 {
-  "enabledPlugins": {
-    "claude-code-wakatime@wakatime": true
-  },
-  "alwaysThinkingEnabled": true,
-  "skipDangerousModePermissionPrompt": true,
   "permissions": {
     "allow": [
       "Skill(update-config)",
@@ -20,8 +15,17 @@
       "Bash(gh release:*)",
       "Bash(gh repo:*)",
       "Skill(release-create)",
+      "Skill(pr-merbumrel)",
       "Bash(uv run:*)",
       "WebFetch(domain:raw.githubusercontent.com)"
     ]
-  }
+  },
+  "model": "haiku",
+  "enabledPlugins": {
+    "claude-code-wakatime@wakatime": true,
+    "superpowers@claude-plugins-official": false
+  },
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true,
+  "editorMode": "vim"
 }
