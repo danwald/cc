@@ -1,6 +1,6 @@
 # /pr-merbumrel-all
 
-Run `/pr-merbumrel` for multiple repositories in parallel using background agents.
+Orchestrate merge → version bump → release for multiple repositories sequentially with non-interactive mode.
 
 ## Usage
 
@@ -18,16 +18,26 @@ Run `/pr-merbumrel` for multiple repositories in parallel using background agent
 
 ## What it does
 
-1. Parses the repo list and bump type (patch/minor/major, default: patch)
-2. Spawns a background Agent for each repo
-3. Each agent runs `/pr-merbumrel <repo> <bump-type>` independently
-4. Reports completion status for each repo
+For each repository, execute the `/pr-merbumrel` workflow sequentially:
+1. Find open bump/dependency PRs (dependabot, renovate, or title contains "bump"/"update deps"/"chore(deps)")
+2. Merge each PR with `--no-confirm` (non-interactive)
+3. Bump the semver version with `--no-confirm`
+4. Trigger a GitHub release automatically
 
 ## Implementation
 
-When invoked, Claude parses arguments and spawns parallel agents using the Agent tool with `run_in_background=True`, each running `/pr-merbumrel` for its assigned repo. This avoids sequential blocking when orchestrating across multiple repositories.
+Parse `$ARGUMENTS`:
+- All tokens except the last are repository names (owner/repo format)
+- Last token may be a bump type (--patch, --minor, --major) or a repo name
+  - If it looks like `--patch|--minor|--major`, use that; default is `patch`
+  - Otherwise, treat it as a repo name
 
-For each repo argument:
-1. Extract repo name (owner/repo format)
-2. Create Agent task: `Agent(description=f"Run pr-merbumrel for {repo}", prompt=f"/pr-merbumrel {repo} {bump_type}", run_in_background=True)`
-3. Report progress and results once all agents complete
+For each repo in sequence:
+1. **Find bump PRs**: `gh pr list -R <repo> --state open --json number,title,author,headRefName` and filter for dependabot/renovate or title matching bump/deps
+2. **Merge PRs**: For each PR, invoke `/pr-merge <PR#> <repo> --no-confirm`
+3. **Bump version**: Invoke `/bump-version <bump_type> --no-confirm` (auto-creates release)
+4. Report results (succeeded/failed count per repo)
+
+## Why sequential, not parallel?
+
+Background agents have permission constraints. Executing in the main session ensures all operations complete without permission issues, while `--no-confirm` keeps everything non-interactive.
