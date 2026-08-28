@@ -7,7 +7,7 @@
 | #:  | AI _may_ do                                                                                                                                                                       | AI _must NOT_ do                                                                                                                                      |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | G-0 | Whenever unsure about something that's related to the project, ask the developer for clarification before making changes.                                                         | ❌ Write changes or use tools when you are not sure about something project specific, or if you don't have context for a particular feature/decision. |
-| G-1 | Generate code **only inside** relevant source directories                                                                                                                         | ❌ Touch `tests/`, `SPEC.md`, or any `*_spec.py` / `*.ward` files (humans own tests & specs).                                                         |
+| G-1 | Generate code **and tests** inside relevant source and test directories                                                                                                           | ❌ Modify `SPEC.md` without explicit approval (humans own product specs).                                                                              |
 | G-2 | Add/update **`AIDEV-NOTE:` anchor comments** near non-trivial edited code.                                                                                                        | ❌ Delete or mangle existing `AIDEV-` comments.                                                                                                       |
 | G-3 | Follow lint/style configs (`pyproject.toml`, `.ruff.toml`, `.pre-commit-config.yaml`). Use the project's configured linter, if available, instead of manually re-formatting code. | ❌ Re-format code to any other style.                                                                                                                 |
 | G-4 | For changes >300 LOC or >3 files, **ask for confirmation**.                                                                                                                       | ❌ Refactor large modules without human guidance.                                                                                                     |
@@ -76,7 +76,7 @@ async def render_feed(...):
 ## Common pitfalls
 
 - Large AI refactors in a single commit (makes `git bisect` difficult).
-- Delegating test/spec writing entirely to AI (can lead to false confidence).
+- Fully delegating test or spec authorship to AI without human review (can lead to false confidence).
 
 Language-specific pitfalls (wrong CWD, `src/` layout, pytest vs ward syntax, etc.) are documented in the `setup-project` skill references.
 
