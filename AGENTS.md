@@ -17,11 +17,13 @@
 
 ## Project setup & coding standards
 
-Python and TypeScript/frontend conventions, tooling, and commands are documented in the **`setup-project` skill** (`~/.claude/skills/setup-project/`):
+Python and TypeScript/frontend conventions, tooling, and commands are documented in `~/.claude/skills/setup-project/references/`:
 
 - [Python](references/python.md) — uv, ruff, mypy, pytest, Ward, error handling, agents-api expressions
 - [TypeScript / Frontend](references/typescript.md) — Node.js, ESLint, Prettier, Vitest, Next.js/React patterns
 - [Common patterns](references/common-patterns.md) — git, CI/CD, versioning, environment variables, security
+
+Claude Code users can also pull these in via the `setup-project` skill; other harnesses should read the files at that path directly.
 
 ---
 
@@ -116,3 +118,5 @@ When responding to user instructions, the AI assistant (Claude, Cursor, GPT, etc
 8. **Update Documentation**: Once the user's request is fulfilled, update relevant anchor comments (`AIDEV-NOTE`, etc.) and `AGENTS.md` files in the files and directories you touched.
 9. **User Review**: After completing the task, ask the user to review what you've done, and repeat the process as needed.
 10. **Session Boundaries**: If the user's request isn't directly related to the current context and can be safely started in a fresh session, suggest starting from scratch to avoid context confusion.
+
+See also: [RTK.md](RTK.md) for additional repo-specific reference material, if present.
